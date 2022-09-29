@@ -44,15 +44,17 @@
 
 // keyboard variables
 char key;
+char deactivateKey;
 
 // keyboard behaviour constants
 const bool HOLD_KEY = false;  // set this to false if you want to have a single quick keystroke, true means the key is pressed and released when you press and release the electrode respectively
-const char KEY_MAP[12] = {'J', 'U', 'H', 'Y', 'G', 'T', 'F', 'D', 'E', 'S', 'W', 'A'};
+//const char KEY_MAP[12] = {'J', 'U', 'H', 'Y', 'G', 'T', 'F', 'D', 'E', 'S', 'W', 'A'};
 // const char KEY_MAP[12] = {KEY_LEFT_ARROW, KEY_RIGHT_ARROW, KEY_UP_ARROW, KEY_DOWN_ARROW, ' ', KEY_ESC, KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_PAGE_UP, KEY_PAGE_DOWN};  // more keys at http://arduino.cc/en/Reference/KeyboardModifiers
-// const char KEY_MAP[12] = {'8', '3', '0', '1', '2', '4', '7', '6', '5', '9', '9', '9'};  // for memory game
+const char ACTIVATE_KEYS[7] = {'1', '2', '3', '4', '5', '6', '7'};  // for memory game
+const char DEACTIVATE_KEYS[7] = {'q', 'w', 'e', 'r', 't', 'z', 'u'};  // for memory game
 
 // touch constants
-const uint32_t BAUD_RATE = 115200;
+const uint32_t BAUD_RATE = 9600;
 const uint8_t MPR121_ADDR = 0x5C;
 const uint8_t MPR121_INT = 4;
 
@@ -111,16 +113,26 @@ void setup() {
   digitalWrite(LED_BUILTIN, LOW);
   
   Keyboard.begin();
+
 }
+
+char TOUCHES[7] = {'1', '2', '3', '4', '5', '6', '7'};
 
 void loop() {
   MPR121.updateAll();
 
   for (int i=0; i < 12; i++) {  // check which electrodes were pressed
-    key = KEY_MAP[i];
+
+
+// uint8_t status;
+// status = MPR121.getTouchData(i);
+// TOUCHES[i] = status;
+
+    key = ACTIVATE_KEYS[i];
+    deactivateKey = DEACTIVATE_KEYS[i];
     
     if (MPR121.isNewTouch(i)) {
-      digitalWrite(LED_BUILTIN, HIGH);
+      //digitalWrite(LED_BUILTIN, HIGH);
       Keyboard.press(key);  // press the appropriate key on the "keyboard" output
 
       if (!HOLD_KEY) {
@@ -128,11 +140,11 @@ void loop() {
       }
     } else {
       if (MPR121.isNewRelease(i)) {
-        digitalWrite(LED_BUILTIN, LOW);
-              Keyboard.press(key);  // press the appropriate key on the "keyboard" output
+        //digitalWrite(LED_BUILTIN, LOW);
+              Keyboard.press(deactivateKey);  // press the appropriate key on the "keyboard" output
 
         if (!HOLD_KEY) {
-          Keyboard.release(key);  // if we have a new release and we were holding a key, release it
+          Keyboard.release(deactivateKey);  // if we have a new release and we were holding a key, release it
         }
       }
     }
@@ -141,4 +153,8 @@ void loop() {
   if (MPR121_DATASTREAM_ENABLE) {
     MPR121_Datastream.update();
   }
+
+// for (int i = 0; i < sizeof(TOUCHES); i++) Serial.print(TOUCHES[i], HEX);
+// Serial.println();
+// delay(100);
 }
