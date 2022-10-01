@@ -1,33 +1,33 @@
 /*******************************************************************************
 
- Bare Conductive HID keyboard demo
- ---------------------------------
+  Bare Conductive HID keyboard demo
+  ---------------------------------
 
- HID_Keyboard.ino - simple MPR121 touch detection to faked keyboard output
+  HID_Keyboard.ino - simple MPR121 touch detection to faked keyboard output
 
- Bare Conductive code written by Stefan Dzisiewski-Smith and Peter Krige.
+  Bare Conductive code written by Stefan Dzisiewski-Smith and Peter Krige.
 
- This work is licensed under a MIT license https://opensource.org/licenses/MIT
+  This work is licensed under a MIT license https://opensource.org/licenses/MIT
 
- Copyright (c) 2016, Bare Conductive
+  Copyright (c) 2016, Bare Conductive
 
- Permission is hereby granted, free of charge, to any person obtaining a copy
- of this software and associated documentation files (the "Software"), to deal
- in the Software without restriction, including without limitation the rights
- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- copies of the Software, and to permit persons to whom the Software is
- furnished to do so, subject to the following conditions:
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
- The above copyright notice and this permission notice shall be included in all
- copies or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
 
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- SOFTWARE.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
 
 *******************************************************************************/
 
@@ -95,66 +95,119 @@ void setup() {
 
   MPR121.setInterruptPin(MPR121_INT);
 
-  if (MPR121_DATASTREAM_ENABLE) {
-    MPR121.restoreSavedThresholds();
-    MPR121_Datastream.begin(&Serial);
-  } else {
-    MPR121.setTouchThreshold(40);
-    MPR121.setReleaseThreshold(20);
-  }
+
+  MPR121.setTouchThreshold(800);
+  MPR121.setReleaseThreshold(100);
 
   MPR121.setFFI(FFI_10);
   MPR121.setSFI(SFI_10);
   MPR121.setGlobalCDT(CDT_4US);  // reasonable for larger capacitances
-  
+
   digitalWrite(LED_BUILTIN, HIGH);  // switch on user LED while auto calibrating electrodes
   delay(1000);
   MPR121.autoSetElectrodes();  // autoset all electrode settings
   digitalWrite(LED_BUILTIN, LOW);
-  
+
   Keyboard.begin();
+
 
 }
 
 char TOUCHES[7] = {'1', '2', '3', '4', '5', '6', '7'};
+uint8_t pinStates[7] = {};
+uint8_t pinStatesPrev[7] = {};
 
 void loop() {
   MPR121.updateAll();
 
-  for (int i=0; i < 12; i++) {  // check which electrodes were pressed
+  //   Serial.println(MPR121.getFilteredData(0));
+  //   Serial.println(MPR121.getBaselineData(0));
+  //
 
-
-// uint8_t status;
-// status = MPR121.getTouchData(i);
-// TOUCHES[i] = status;
+  for (int i = 0; i < 7; i++) { // check which electrodes were pressed
 
     key = ACTIVATE_KEYS[i];
     deactivateKey = DEACTIVATE_KEYS[i];
-    
-    if (MPR121.isNewTouch(i)) {
-      //digitalWrite(LED_BUILTIN, HIGH);
+
+
+    uint8_t previousValue = pinStatesPrev[i];
+
+    uint8_t currentValue;
+    currentValue = MPR121.getFilteredData(i);
+
+
+    if (currentValue > previousValue + 30) {
+      Serial.print(i);
+      Serial.print(" was removed with value ");
+      Serial.print(currentValue);
+      Serial.print(", ");
+      Serial.println(previousValue);
+
+      Keyboard.press(deactivateKey);  // press the appropriate key on the "keyboard" output
+
+      if (!HOLD_KEY) {
+        Keyboard.release(deactivateKey);  // if we don't want to hold the key, immediately release it
+      }
+    } else if (currentValue < previousValue - 30) {
+      Serial.print(i);
+      Serial.print(" was inserted with value ");
+      Serial.print(currentValue);
+      Serial.print(", ");
+      Serial.println(previousValue);
+
       Keyboard.press(key);  // press the appropriate key on the "keyboard" output
 
       if (!HOLD_KEY) {
-        Keyboard.release(key);  // if we don't want to hold the key, immediately release it
-      }
-    } else {
-      if (MPR121.isNewRelease(i)) {
-        //digitalWrite(LED_BUILTIN, LOW);
-              Keyboard.press(deactivateKey);  // press the appropriate key on the "keyboard" output
-
-        if (!HOLD_KEY) {
-          Keyboard.release(deactivateKey);  // if we have a new release and we were holding a key, release it
-        }
+        Keyboard.release(key);  // if we have a new release and we were holding a key, release it
       }
     }
+
+    pinStatesPrev[i] = currentValue;
+
+    uint8_t status;
+    status = MPR121.getTouchData(i);
+    TOUCHES[i] = status;
+
+    uint8_t state;
+    state = MPR121.getFilteredData(i);
+    pinStates[i] = state;
+
+
+
+
+
+//    if (MPR121.isNewTouch(i)) {
+//      //digitalWrite(LED_BUILTIN, HIGH);
+//      Keyboard.press(key);  // press the appropriate key on the "keyboard" output
+//
+//      if (!HOLD_KEY) {
+//        Keyboard.release(key);  // if we don't want to hold the key, immediately release it
+//      }
+//    } else {
+//      if (MPR121.isNewRelease(i)) {
+//        //digitalWrite(LED_BUILTIN, LOW);
+//        Keyboard.press(deactivateKey);  // press the appropriate key on the "keyboard" output
+//
+//        if (!HOLD_KEY) {
+//          Keyboard.release(deactivateKey);  // if we have a new release and we were holding a key, release it
+//        }
+//      }
+//    }
   }
 
-  if (MPR121_DATASTREAM_ENABLE) {
-    MPR121_Datastream.update();
-  }
+//  if (MPR121_DATASTREAM_ENABLE) {
+//    MPR121_Datastream.update();
+//  }
 
-// for (int i = 0; i < sizeof(TOUCHES); i++) Serial.print(TOUCHES[i], HEX);
-// Serial.println();
-// delay(100);
+  // for (int i = 0; i < sizeof(TOUCHES); i++) Serial.print(TOUCHES[i], HEX);
+  // Serial.println();
+  //
+  for (int i = 0; i < sizeof(pinStates); i++) {
+    Serial.print(pinStates[i]);
+    Serial.print(",");
+
+  }
+  Serial.println();
+
+  delay(500);
 }
